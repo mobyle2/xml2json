@@ -37,19 +37,34 @@ R. White, 2006 November 6
 import xml.etree.cElementTree as ET
 import simplejson, optparse, sys, os
 
-def elem_to_internal(elem,strip=1):
-
-    """Convert an Element into an internal dictionary (not JSON!)."""
-
+def elem_to_internal(elem,strip=1,list_elems=[]):
+    """
+    Convert an Element into an internal dictionary (not JSON!).
+    :param elem: the element to be parsed
+    :type elem: Element
+    :param strip: flag to indicate wether the leading/trailing whitespaces should be ignored during parsing
+    :type strip: bool
+    :param list_elems: the list of element names for which the subelements' order should be kept. 
+    :type elem: list
+    :returns: the result of the parsing as a dictionary entry in the following form: {[element tag name]:[result of the parsing of the contents]}.
+    :rtype: dict
+    """
     d = {}
     for key, value in elem.attrib.items():
         d['@'+key] = value
-
+    # if the order in the subelements should be kept, they will be added to this list
+    if elem.tag in list_elems:
+        d['contents']=[]
     # loop over subelements to merge them
     for subelem in elem:
-        v = elem_to_internal(subelem,strip=strip)
+        v = elem_to_internal(subelem,strip=strip,list_elems=list_elems)
         tag = subelem.tag
         value = v[tag]
+        # if the order in the subelements should be kept
+        if elem.tag in list_elems:
+            d['contents'].append((tag, value))
+            # then jump to the next element
+            continue
         try:
             # add to existing list for this tag
             d[tag].append(value)
@@ -119,13 +134,22 @@ def internal_to_elem(pfsh, factory=ET.Element):
     return e
 
 
-def elem2json(elem, strip=1):
-
-    """Convert an ElementTree or Element into a JSON string."""
+def elem2json(elem, strip=1, list_elems=[]):
+    """
+    Convert an ElementTree or Element into a JSON string.
+    :param elem: the element to be parsed
+    :type elem: Element
+    :param strip: flag to indicate wether the leading/trailing whitespaces should be ignored during parsing
+    :type strip: bool
+    :param list_elems: the list of element names for which the subelements' order should be kept. 
+    :type elem: list
+    :returns: the result of the parsing as a JSON string.
+    :rtype: JSON
+    """
 
     if hasattr(elem, 'getroot'):
         elem = elem.getroot()
-    return simplejson.dumps(elem_to_internal(elem, strip=strip))
+    return simplejson.dumps(elem_to_internal(elem, strip=strip, list_elems=[]))
 
 
 def json2elem(json, factory=ET.Element):
