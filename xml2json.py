@@ -1,6 +1,10 @@
 #!/usr/bin/env python
+"""
+xml2json.py  Convert XML to JSON
 
-"""xml2json.py  Convert XML to JSON
+Forked from http://github.com/hay/xml2json
+
+The aim of this fork is to preserve the order of XML subelements.
 
 Relies on ElementTree for the XML parsing.  This is based on
 pesterfish.py but uses a different XML->JSON mapping.
@@ -12,12 +16,19 @@ contributions from George Hamilton (gmh04) and Dan Brown (jdanbrown)
 
 XML                              JSON
 <e/>                             "e": null
+                                 {"#tag":"e"}
 <e>text</e>                      "e": "text"
+                                 {"#tag":"e", "#children":["text"]}
 <e name="value" />               "e": { "@name": "value" }
+                                 {"#tag":"e", "@name":"value"}
 <e name="value">text</e>         "e": { "@name": "value", "#text": "text" }
-<e> <a>text</a ><b>text</b> </e> "e": { "a": "text", "b": "text" }
+                                 {"#tag":"e", "@name":"value", "#children":["text"]}
+<e> <a>text</a ><b>text</b> </e> "e": { "#contents": [{"#tag":"a","#contents":"text"}, "b": "text" }
+                                 {"#tag":"e", "#children": [{"#tag":"a","#children":["text"]},{"#tag":"b","#children":["text"]}]}
 <e> <a>text</a> <a>text</a> </e> "e": { "a": ["text", "text"] }
+                                 {"#tag":"e", "#children": [{"#tag":"a","#children":["text"]},{"#tag":"a","#children":["text"]}]}
 <e> text <a>text</a> </e>        "e": { "#text": "text", "a": "text" }
+                                 {"#tag":"e", "#children": ["text",{"#tag":"a","#children":["text"]}]}
 
 This is very similar to the mapping used for Yahoo Web Services
 (http://developer.yahoo.com/common/json.html#xml).
@@ -37,60 +48,47 @@ R. White, 2006 November 6
 import xml.etree.cElementTree as ET
 import simplejson, optparse, sys, os
 
-def elem_to_internal(elem,strip=1,list_elems=[]):
+#class AccessibleDict(dict):
+#
+#    def getu(self, key, default=None):
+#        try:
+#            return dict.__getitem__(self, key)
+#        except KeyError:
+#            val = [value['#children'] for value in dict.__getitem__(self, "#children") if isinstance(value, dict) and value['#tag']==key]
+#            if len(val)>1:
+#                return val
+#            elif len(val)==1:
+#                val[0][0] if len(val[0])==1 else val[0]
+#            else:
+#                return default
+
+def elem_to_internal(elem,strip=1):
     """
     Convert an Element into an internal dictionary (not JSON!).
     :param elem: the element to be parsed
     :type elem: Element
     :param strip: flag to indicate wether the leading/trailing whitespaces should be ignored during parsing
     :type strip: bool
-    :param list_elems: the list of element names for which the subelements' order should be kept. 
-    :type elem: list
     :returns: the result of the parsing as a dictionary entry in the following form: {[element tag name]:[result of the parsing of the contents]}.
     :rtype: dict
     """
     d = {}
+    d['#tag']=elem.tag
     for key, value in elem.attrib.items():
         d['@'+key] = value
-    # if the order in the subelements should be kept, they will be added to this list
-    if elem.tag in list_elems:
-        d['contents']=[]
+    d['#children']=[]
+    if elem.text is not None:
+        text = elem.text.strip() if strip else elem.text
+        if text != '':
+            d['#children'].append(text)
     # loop over subelements to merge them
     for subelem in elem:
-        v = elem_to_internal(subelem,strip=strip,list_elems=list_elems)
-        tag = subelem.tag
-        value = v[tag]
-        # if the order in the subelements should be kept
-        if elem.tag in list_elems:
-            d['contents'].append((tag, value))
-            # then jump to the next element
-            continue
-        try:
-            # add to existing list for this tag
-            d[tag].append(value)
-        except AttributeError:
-            # turn existing entry into a list
-            d[tag] = [d[tag], value]
-        except KeyError:
-            # add a new non-list entry
-            d[tag] = value
-    text = elem.text
-    tail = elem.tail
-    if strip:
-        # ignore leading and trailing whitespace
-        if text: text = text.strip()
-        if tail: tail = tail.strip()
-
-    if tail:
-        d['#tail'] = tail
-
-    if d:
-        # use #text element if other attributes exist
-        if text: d["#text"] = text
-    else:
-        # text is the value if no attributes
-        d = text or None
-    return {elem.tag: d}
+        d['#children'].append(elem_to_internal(subelem,strip=strip))
+        if subelem.tail is not None:
+            text = subelem.tail.strip() if strip else subelem.tail
+            if text != '':
+                d['#children'].append(text)
+    return d
 
 
 def internal_to_elem(pfsh, factory=ET.Element):
