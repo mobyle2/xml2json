@@ -48,20 +48,6 @@ R. White, 2006 November 6
 import xml.etree.cElementTree as ET
 import simplejson, optparse, sys, os
 
-#class AccessibleDict(dict):
-#
-#    def getu(self, key, default=None):
-#        try:
-#            return dict.__getitem__(self, key)
-#        except KeyError:
-#            val = [value['#children'] for value in dict.__getitem__(self, "#children") if isinstance(value, dict) and value['#tag']==key]
-#            if len(val)>1:
-#                return val
-#            elif len(val)==1:
-#                val[0][0] if len(val[0])==1 else val[0]
-#            else:
-#                return default
-
 def elem_to_internal(elem,strip=1):
     """
     Convert an Element into an internal dictionary (not JSON!).
@@ -99,38 +85,18 @@ def internal_to_elem(pfsh, factory=ET.Element):
     used by default; if you want to use something else, pass the
     Element class as the factory parameter.
     """
-
-    attribs = {}
-    text = None
-    tail = None
-    sublist = []
-    tag = pfsh.keys()
-    if len(tag) != 1:
-        raise ValueError("Illegal structure with multiple tags: %s" % tag)
-    tag = tag[0]
-    value = pfsh[tag]
-    if isinstance(value, dict):
-        for k, v in value.items():
-            if k[:1] == "@":
-                attribs[k[1:]] = v
-            elif k == "#text":
-                text = v
-            elif k == "#tail":
-                tail = v
-            elif isinstance(v, list):
-                for v2 in v:
-                    sublist.append(internal_to_elem({k:v2}, factory=factory))
+    e = factory(pfsh['#tag'], {key[1:]: value for (key, value) in pfsh.items() if key[0] == '@'})
+    child_el = None
+    for child in pfsh['#children']:
+        if isinstance(child,basestring):
+            if child_el is None:
+                e.text = child
             else:
-                sublist.append(internal_to_elem({k:v}, factory=factory))
-    else:
-        text = value
-    e = factory(tag, attribs)
-    for sub in sublist:
-        e.append(sub)
-    e.text = text
-    e.tail = tail
+                child_el.tail = child
+        else:
+            child_el = internal_to_elem(child)
+            e.append(child_el)
     return e
-
 
 def elem2json(elem, strip=1, list_elems=[]):
     """
