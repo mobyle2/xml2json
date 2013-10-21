@@ -45,7 +45,7 @@ R. White, 2006 November 6
 """
 
 import xml.etree.cElementTree as ET
-import simplejson, optparse, sys
+import json, optparse, sys
 
 def elem_to_internal(elem, strip=1):
     """
@@ -120,14 +120,14 @@ def elem2json(elem, strip=1):
 
     if hasattr(elem, 'getroot'):
         elem = elem.getroot()
-    return simplejson.dumps(elem_to_internal(elem, strip=strip))
+    return json.dumps(elem_to_internal(elem, strip=strip))
 
 
-def json2elem(json, factory=ET.Element):
+def json2elem(json_data, factory=ET.Element):
     """
     Convert a JSON string into an Element.
-    :param pfsh: the JSON data
-    :type pfsh: string
+    :param json_data: the JSON data
+    :type json_data: string
     :param factory: element factory which should be used. Whatever 
                     Element implementation we could import will be
                     used by default; if you want to use something else,
@@ -137,7 +137,7 @@ def json2elem(json, factory=ET.Element):
     :rtype: ET.Element
     """
 
-    return internal_to_elem(simplejson.loads(json), factory)
+    return internal_to_elem(json.loads(json_data), factory)
 
 
 def xml2json(xmlstring, strip=1):
@@ -156,11 +156,11 @@ def xml2json(xmlstring, strip=1):
     return elem2json(elem, strip=strip)
 
 
-def json2xml(json, factory=ET.Element):
+def json2xml(json_data, factory=ET.Element):
     """
     Convert a JSON string into an XML string.
-    :param json: the JSON data
-    :type json: string
+    :param json_data: the JSON data
+    :type json_data: string
     :param factory: element factory which should be used. Whatever 
                     Element implementation we could import will be
                     used by default; if you want to use something else,
@@ -170,7 +170,7 @@ def json2xml(json, factory=ET.Element):
     :rtype: string
     """
 
-    elem = internal_to_elem(simplejson.loads(json), factory)
+    elem = internal_to_elem(json.loads(json_data), factory)
     return ET.tostring(elem)
 
 

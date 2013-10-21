@@ -19,7 +19,6 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         ],
     install_requires=[
-        'simplejson'
         ],
     entry_points="""
             [console_scripts]
